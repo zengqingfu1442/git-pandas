@@ -93,11 +93,22 @@
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-cache-backends">Available Cache Backends</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#in-memory-cache-ephemeralcache">In-Memory Cache (EphemeralCache)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#disk-cache-diskcache">Disk Cache (DiskCache)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#redis-cache-redisdfcache">Redis Cache (RedisDFCache)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cache-timestamp-information">Cache Timestamp Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cache-information-methods">Cache Information Methods</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#using-the-cache-decorator">Using the Cache Decorator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#backward-compatibility">Backward Compatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best Practices</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#shared-cache-usage">Shared Cache Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cache-size-planning">Cache Size Planning</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#api-reference">API Reference</a></li>
 </ul>
 </li>
@@ -182,7 +193,8 @@
 * Redis-based caching for persistent storage
 * Configurable cache durations
 * Automatic cache invalidation
-* Decorator-based caching for expensive operations</p>
+* Decorator-based caching for expensive operations
+* <strong>Cache timestamp tracking</strong> - know when cache entries were populated</p>
 </section>
 <section id="available-cache-backends">
 <h2>Available Cache Backends<a class="headerlink" href="#available-cache-backends" title="Permalink to this heading"></a></h2>
@@ -197,6 +209,20 @@
 
 <span class="c1"># Or customize the cache size</span>
 <span class="n">cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">(</span><span class="n">max_keys</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+
+<span class="c1"># Use the cache with a repository</span>
+<span class="n">repo</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">cache</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="disk-cache-diskcache">
+<h3>Disk Cache (DiskCache)<a class="headerlink" href="#disk-cache-diskcache" title="Permalink to this heading"></a></h3>
+<p>For persistent caching that survives between sessions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">Repository</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiskCache</span>
+
+<span class="c1"># Create a disk cache</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">DiskCache</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="s1">&#39;/path/to/cache.gz&#39;</span><span class="p">,</span> <span class="n">max_keys</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
 
 <span class="c1"># Use the cache with a repository</span>
 <span class="n">repo</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">cache</span><span class="p">)</span>
@@ -227,6 +253,52 @@
 </div>
 </section>
 </section>
+<section id="cache-timestamp-information">
+<h2>Cache Timestamp Information<a class="headerlink" href="#cache-timestamp-information" title="Permalink to this heading"></a></h2>
+<p>All cache backends now track when cache entries were populated. You can access this information
+without any changes to the Repository or ProjectDirectory API:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">Repository</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">EphemeralCache</span>
+
+<span class="c1"># Create repository with cache</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">()</span>
+<span class="n">repo</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">cache</span><span class="p">)</span>
+
+<span class="c1"># Populate cache with some operations</span>
+<span class="n">commit_history</span> <span class="o">=</span> <span class="n">repo</span><span class="o">.</span><span class="n">commit_history</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">file_list</span> <span class="o">=</span> <span class="n">repo</span><span class="o">.</span><span class="n">list_files</span><span class="p">()</span>
+
+<span class="c1"># Check what&#39;s in the cache and when it was cached</span>
+<span class="n">cached_keys</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">list_cached_keys</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">cached_keys</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Key: </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cached at: </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">&#39;cached_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Age: </span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s1">&#39;age_seconds&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+
+<span class="c1"># Get specific cache information</span>
+<span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;commit_history_main_10_None_None_None_None&quot;</span>
+<span class="n">info</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">get_cache_info</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">info</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cache entry age: </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;age_minutes&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> minutes&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="cache-information-methods">
+<h3>Cache Information Methods<a class="headerlink" href="#cache-information-methods" title="Permalink to this heading"></a></h3>
+<p>All cache backends support these methods for accessing timestamp information:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">list_cached_keys()</span></code> - Returns list of all cached keys with metadata</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_cache_info(key)</span></code> - Returns detailed information about a specific cache entry</p></li>
+</ul>
+<p>The returned information includes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cached_at</span></code> - UTC timestamp when the entry was cached</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">age_seconds</span></code> - Age of the cache entry in seconds</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">age_minutes</span></code> - Age of the cache entry in minutes</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">age_hours</span></code> - Age of the cache entry in hours</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cache_key</span></code> - The original cache key</p></li>
+</ul>
+</section>
+</section>
 <section id="using-the-cache-decorator">
 <h2>Using the Cache Decorator<a class="headerlink" href="#using-the-cache-decorator" title="Permalink to this heading"></a></h2>
 <p>The <cite>&#64;multicache</cite> decorator can be used to cache method results:</p>
@@ -248,6 +320,9 @@
 <p>Cache backends can be configured with various parameters:</p>
 <p>EphemeralCache:
 * <code class="docutils literal notranslate"><span class="pre">max_keys</span></code>: Maximum number of keys to store in memory (default: 1000)</p>
+<p>DiskCache:
+* <code class="docutils literal notranslate"><span class="pre">filepath</span></code>: Path to the cache file (required)
+* <code class="docutils literal notranslate"><span class="pre">max_keys</span></code>: Maximum number of keys to store (default: 1000)</p>
 <p>RedisDFCache:
 * <code class="docutils literal notranslate"><span class="pre">host</span></code>: Redis host (default: ‘localhost’)
 * <code class="docutils literal notranslate"><span class="pre">port</span></code>: Redis port (default: 6379)
@@ -255,6 +330,96 @@
 * <code class="docutils literal notranslate"><span class="pre">max_keys</span></code>: Maximum number of keys to store (default: 1000)
 * <code class="docutils literal notranslate"><span class="pre">ttl</span></code>: Time-to-live in seconds for cache entries (default: None, no expiration)
 * Additional keyword arguments are passed to redis.StrictRedis</p>
+</section>
+<section id="backward-compatibility">
+<h2>Backward Compatibility<a class="headerlink" href="#backward-compatibility" title="Permalink to this heading"></a></h2>
+<p>The cache timestamp functionality is fully backward compatible:</p>
+<ul class="simple">
+<li><p>Existing cache files will continue to work</p></li>
+<li><p>Old cache entries without timestamps will be automatically converted</p></li>
+<li><p>No changes to Repository or ProjectDirectory APIs</p></li>
+<li><p>All existing code continues to work unchanged</p></li>
+</ul>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Permalink to this heading"></a></h2>
+<section id="shared-cache-usage">
+<h3>Shared Cache Usage<a class="headerlink" href="#shared-cache-usage" title="Permalink to this heading"></a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Recommendation: Use Separate Cache Instances</strong></p>
+<p>While it’s technically possible to share the same cache object across multiple Repository instances,
+we <strong>strongly recommend using separate cache instances</strong> for each repository for the following reasons:</p>
+</div>
+<p><strong>Recommended Approach - Separate Caches:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">Repository</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiskCache</span>
+
+<span class="c1"># Create separate cache instances for each repository</span>
+<span class="n">cache1</span> <span class="o">=</span> <span class="n">DiskCache</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="s1">&#39;repo1_cache.gz&#39;</span><span class="p">)</span>
+<span class="n">cache2</span> <span class="o">=</span> <span class="n">DiskCache</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="s1">&#39;repo2_cache.gz&#39;</span><span class="p">)</span>
+
+<span class="n">repo1</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo1&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">cache1</span><span class="p">)</span>
+<span class="n">repo2</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo2&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">cache2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Benefits of Separate Caches:</strong></p>
+<ul class="simple">
+<li><p><strong>Complete Isolation</strong>: No risk of cache eviction conflicts between repositories</p></li>
+<li><p><strong>Predictable Memory Usage</strong>: Each repository has its own memory budget</p></li>
+<li><p><strong>Easier Debugging</strong>: Cache issues are isolated to specific repositories</p></li>
+<li><p><strong>Better Performance</strong>: No lock contention in multi-threaded scenarios</p></li>
+<li><p><strong>Clear Cache Management</strong>: You can clear or manage each repository’s cache independently</p></li>
+</ul>
+<p><strong>If You Must Share Caches:</strong></p>
+<p>If you need to share a cache object across multiple repositories (e.g., for memory constraints),
+the system is designed to handle this safely:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">Repository</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gitpandas.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">EphemeralCache</span>
+
+<span class="c1"># Shared cache (not recommended but supported)</span>
+<span class="n">shared_cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">(</span><span class="n">max_keys</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="n">repo1</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo1&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">shared_cache</span><span class="p">)</span>
+<span class="n">repo2</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s1">&#39;/path/to/repo2&#39;</span><span class="p">,</span> <span class="n">cache_backend</span><span class="o">=</span><span class="n">shared_cache</span><span class="p">)</span>
+
+<span class="c1"># Each repository gets separate cache entries</span>
+<span class="n">files1</span> <span class="o">=</span> <span class="n">repo1</span><span class="o">.</span><span class="n">list_files</span><span class="p">()</span>  <span class="c1"># Creates cache key: list_files||repo1||None</span>
+<span class="n">files2</span> <span class="o">=</span> <span class="n">repo2</span><span class="o">.</span><span class="n">list_files</span><span class="p">()</span>  <span class="c1"># Creates cache key: list_files||repo2||None</span>
+</pre></div>
+</div>
+<p><strong>Shared Cache Considerations:</strong></p>
+<ul class="simple">
+<li><p>Repository names are included in cache keys to prevent collisions</p></li>
+<li><p>Cache eviction affects all repositories sharing the cache</p></li>
+<li><p>Memory usage is shared across all repositories</p></li>
+<li><p>Very active repositories may evict cache entries from less active ones</p></li>
+</ul>
+</section>
+<section id="cache-size-planning">
+<h3>Cache Size Planning<a class="headerlink" href="#cache-size-planning" title="Permalink to this heading"></a></h3>
+<p>When planning cache sizes, consider:</p>
+<ul class="simple">
+<li><p><strong>Repository Size</strong>: Larger repositories generate more cache entries</p></li>
+<li><p><strong>Operation Types</strong>: Some operations (like <code class="docutils literal notranslate"><span class="pre">cumulative_blame</span></code>) create many cache entries</p></li>
+<li><p><strong>Memory Constraints</strong>: Balance cache size with available system memory</p></li>
+<li><p><strong>Analysis Patterns</strong>: Frequently repeated analyses benefit from larger caches</p></li>
+</ul>
+<p><strong>Recommended Cache Sizes:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Small repositories (&lt; 1000 commits)</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">(</span><span class="n">max_keys</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="c1"># Medium repositories (1000-10000 commits)</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">(</span><span class="n">max_keys</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+
+<span class="c1"># Large repositories (&gt; 10000 commits)</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">EphemeralCache</span><span class="p">(</span><span class="n">max_keys</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="c1"># For disk/Redis caches, you can use larger sizes</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="n">DiskCache</span><span class="p">(</span><span class="n">filepath</span><span class="o">=</span><span class="s1">&#39;cache.gz&#39;</span><span class="p">,</span> <span class="n">max_keys</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="api-reference">
 <h2>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this heading"></a></h2>
