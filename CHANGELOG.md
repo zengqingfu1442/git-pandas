@@ -3,6 +3,10 @@ Unreleased
 
 ## Bug Fixes
 
+### Punchcard Normalization
+
+ * **FIXED**: `Repository.punchcard()` and `ProjectDirectory.punchcard()` now preserve finite zeros when normalizing an all-zero metric instead of producing `NaN` values through division by zero.
+
 ### Revision Sampling (`num_datapoints`)
 
 **This is a user-visible change to the output of `revs`, `cumulative_blame` and
